@@ -4,64 +4,64 @@
 import random
 import time
 import pandas as pd
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
+from tqdm import tqdm
+from typing import Optional
+import requests
 
 from helpers import get_sitemap_urls, get_article_urls, is_valid_article_url, scrape_article_full
 
-def initiate_scraping(sitemap_xml_file: str) -> list[dict]:
-    """
-    Initiates the full scraping process using a sitemap index file.
+# Config Variables
+URL_LIST_PATH = "businessinsider_urls.txt"
+OUTPUT_CSV = "scraped_articles_parallel.csv"
+MAX_WORKER = 5
+MAX_RETRIES = 3
+DELAY_RANGE = (1.5, 3.5)
+RESUME = True
 
-    This function performs the following steps:
-    - Retrieves individual sitemap URLs from the sitemap index file.
-    - Extracts article URLs from each sitemap.
-    - Scrapes each article and collects relevant metadata and analysis.
+# Load URL list
+with open(URL_LIST_PATH, "r", encoding="utf-8") as f:
+    all_urls = [line.strip() for line in f if line.strip()]
+
+
+def scrape_with_retries(url: str) -> Optional[dict]:
+    """
+    Attempt to scrape an article from a given URL with multiple retries.
+
+    This function:
+    - Skips URLs that have already been processed (present in `done_urls`)
+    - Retries scraping up to `MAX_RETRIES` times in case of failure
+    - Applies an increasing delay (with randomness) between retries
+    - Saves successful results to a CSV file in a thread-safe way using `csv_lock`
 
     Parameters:
-        sitemap_xml_file (str): The URL of the sitemap index XML file.
+        url (str): The URL of the article to scrape.
 
     Returns:
-        list[dict]: A list of dictionaries, each containing metadata and analysis
-                    for one successfully scraped article.
+        dict or None: The scraped article data as a dictionary if successful,
+        or None if all retries fail or URL was already processed.
     """
-    sitemap_urls = get_sitemap_urls(sitemap_xml_file)
+    if url in done_urls:
+        return None
 
-    all_article_urls = []
-    article_records = []
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            result = scrape_article_full(url=url)
+            if result:
+                with csv_lock:
+                    pd.DataFrame(
+                        [result]
+                    ).to_csv(
+                        OUTPUT_CSV, mode="a", index=False, header=not Path(OUTPUT_CSV).exists()
+                    )
+                return result
+        except (requests.RequestException, ValueError) as e:
+            print(f"{url} Attempt {attempt} failed: {e}")
 
-    for sitemap_url in sitemap_urls:
-        print(f"Parsing {sitemap_url}...")
-        urls = get_article_urls(sitemap_url=sitemap_url)
-        all_article_urls.extend(urls)
-        time.sleep(random.randint(1, 5))
+        sleep_time = random.uniform(*DELAY_RANGE) * attempt
+        time.sleep(sleep_time)
 
-    for url in all_article_urls:
-        if is_valid_article_url(url=url):
-            print(f"Scraping: {url}")
-            record = scrape_article_full(url=url)
-            if record:
-                article_records.append(record)
-            time.sleep(random.randint(1, 5))
-
-    return article_records
-
-
-def convert_to_dataframe_and_save_csv(title: str, data: list[dict]) -> None:
-    """
-    Converts the given data into a pandas DataFrame, saves it as a CSV file, and prints a summary.
-
-    Args:
-        title (str): The name of the CSV file (without extension) to save the DataFrame to.
-        data: A list of dictionaries or a similar structure compatible with pandas DataFrame construction.
-
-    Side Effects:
-        - Saves the DataFrame as a CSV file named '{title}.csv' in the current directory.
-        - Prints the number of processed articles.
-        - Displays the first few rows of selected columns: 'url', 'top_loanwords', and 'all_loanwords'.
-
-    Returns:
-        None
-    """
-    df = pd.DataFrame(data)
-    df.to_csv(f"{title}.csv", index=False)
-    print(f"\n Scraped and processed {len(df)} articles.")
-    print(df[["url", "top_loanwords", "all_loanwords"]].head())
+    print(f"[Failed] {url} after {MAX_RETRIES} retries")
+    return None
