@@ -16,8 +16,12 @@ from langdetect.lang_detect_exception import LangDetectException
 from transformers import pipeline
 from typing import Optional
 
-headers = {"User-Agent": "Mozilla/5.0"}
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
 sentiment_model = pipeline("sentiment-analysis", model="oliverguhr/german-sentiment-bert")
+non_article_pages = ["/video/,", ".jpg", ".jpeg",
+                     ".png", ".gif", "/bilder/", "/photo/"]
 
 def get_sitemap_urls(index_url: str) -> list[str]:
     """
@@ -54,6 +58,12 @@ def get_article_urls(sitemap_url: str) -> list[str]:
     res = requests.get(sitemap_url, headers=headers)
     soup = BeautifulSoup(res.text, "xml")
     return [loc.text for loc in soup.find_all("loc")]
+
+def is_valid_article_url(url: str):
+    return (
+        url.endswith("html")
+        and not any(x in url for x in non_article_pages)
+    )
 
 def extract_meta_data(soup: BeautifulSoup) -> Optional[str]:
     """
@@ -116,6 +126,21 @@ def extract_year_from_url(url: str) -> Optional[str]:
     match = re.search(r"/(20\d{2})/", url)
     if match:
         return match.group(1)
+    return None
+
+def extract_headline(soup: BeautifulSoup):
+    og_title = soup.find("meta", property="og:title")
+    if og_title and og_title.get("content"):
+        return og_title["content"].strip()
+    
+    title_tag = soup.find("title")
+    if title_tag:
+        return title_tag.get_text(strip=True)
+    
+    h1 = soup.find("h1")
+    if h1:
+        return h1.get_text(strip=True)
+    
     return None
 
 def detect_loanwords(text: str) -> list[str]:
@@ -189,45 +214,62 @@ def scrape_article_full(url: str) -> Optional[dict]:
         dict or None: A dictionary containing article data and analysis results.
         Returns None if scraping or parsing fails.
     """
+    if not is_valid_article_url(url=url):
+        print(f"Skipping non-article URL: {url}")
+        return None
+
     try:
-        res = requests.get(url, headers=headers)
-        soup = BeautifulSoup(res.text, "html.parser")
+        res = requests.get(url, headers=headers, timeout=10)
+
+        if "text/html" not in res.headers.get("Content-Type", ""):
+            print(f"Non-HTML content for {url}")
+            return None
+
+        res.encoding = res.apparent_encoding
+        soup = BeautifulSoup(res.text, "html5lib")
         paragraphs = soup.find_all("p")
 
-        if len(paragraphs) > 5:
-            text = " ".join(p.get_text() for p in paragraphs)
-            date = extract_meta_data(soup=soup) or extract_jsonld_date(soup=soup) or extract_year_from_url(url=url)
-            year = date.split("-")[0] if date else None
-            domain = urlparse(url).netloc
-            source_site = domain.replace("www.", "")
-            word_count = len(text.split())
-            loanwords = detect_loanwords(text)
-            loanword_count = len(loanwords)
-            loanword_density = loanword_count / word_count if word_count else 0
-            sentiment = analyse_sentiment(text)
-            top_loanwords = [w for w, _ in Counter(loanwords).most_common(3)]
-            all_loanwords = list(set(loanwords))
+        if len(paragraphs) < 5:
+            print(f"Too few paragraphs at {url}")
+            return None
 
-            return {
-                "url": url,
-                "source_site": source_site,
-                "domain": domain.split(".")[0],
-                "date": date,
-                "year": int(year) if year else None,
-                "text": text,
-                "word_count": word_count,
-                "paragraphs": len(paragraphs),
-                "loanwords": loanwords,
-                "all_loanwords": all_loanwords,
-                "loanword_count": loanword_count,
-                "loanword_density": round(loanword_density, 4),
-                "top_loanwords": top_loanwords,
-                "sentiment": sentiment,
-            }
+        text = " ".join(p.get_text() for p in paragraphs).strip()
+        if not text:
+            print(f"No text extracted from {url}")
+            return None
+
+        text = " ".join(p.get_text() for p in paragraphs)
+        date = extract_meta_data(soup=soup) or extract_jsonld_date(soup=soup) or extract_year_from_url(url=url)
+        year = date.split("-")[0] if date else None
+        domain = urlparse(url).netloc
+        source_site = domain.replace("www.", "")
+        headline = extract_headline(soup=soup)
+        word_count = len(text.split())
+        loanwords = detect_loanwords(text)
+        loanword_count = len(loanwords)
+        loanword_density = loanword_count / word_count if word_count else 0
+        sentiment = analyse_sentiment(text)
+        top_loanwords = [w for w, _ in Counter(loanwords).most_common(3)]
+        all_loanwords = list(set(loanwords))
+
+        return {
+            "url": url,
+            "source_site": source_site,
+            "domain": domain.split(".")[0],
+            "date": date,
+            "year": int(year) if year else None,
+            "text": text,
+            "headline": headline,
+            "word_count": word_count,
+            "paragraphs": len(paragraphs),
+            "loanwords": loanwords,
+            "all_loanwords": all_loanwords,
+            "loanword_count": loanword_count,
+            "loanword_density": round(loanword_density, 4),
+            "top_loanwords": top_loanwords,
+            "sentiment": sentiment,
+        }
 
     except (requests.RequestException, AttributeError, ValueError) as e:
         print(f"Error scraping {url}: {e}")
-    return None
-
-
-
+        return None

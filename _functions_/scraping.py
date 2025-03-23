@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import sys
 import random
 import time
 import pandas as pd
 
-from helpers import get_sitemap_urls, get_article_urls, scrape_article_full
+from helpers import get_sitemap_urls, get_article_urls, is_valid_article_url, scrape_article_full
 
 def initiate_scraping(sitemap_xml_file: str) -> list[dict]:
     """
@@ -36,11 +35,12 @@ def initiate_scraping(sitemap_xml_file: str) -> list[dict]:
         time.sleep(random.randint(1, 5))
 
     for url in all_article_urls:
-        print(f"Scraping: {url}")
-        record = scrape_article_full(url=url)
-        if record:
-            article_records.append(record)
-        time.sleep(random.randint(1, 5))
+        if is_valid_article_url(url=url):
+            print(f"Scraping: {url}")
+            record = scrape_article_full(url=url)
+            if record:
+                article_records.append(record)
+            time.sleep(random.randint(1, 5))
 
     return article_records
 
