@@ -59,7 +59,20 @@ def get_article_urls(sitemap_url: str) -> list[str]:
     soup = BeautifulSoup(res.text, "xml")
     return [loc.text for loc in soup.find_all("loc")]
 
-def is_valid_article_url(url: str):
+def is_valid_article_url(url: str) -> bool:
+    """
+    Check if a given URL is a valid article link.
+
+    A valid article URL is defined as one that:
+    - Ends with "html"
+    - Does not contain any of the substrings listed in `non_article_pages`
+
+    Parameters:
+        url (str): The URL to validate.
+
+    Returns:
+        bool: True if the URL is considered a valid article URL, False otherwise.
+    """
     return (
         url.endswith("html")
         and not any(x in url for x in non_article_pages)
@@ -128,19 +141,33 @@ def extract_year_from_url(url: str) -> Optional[str]:
         return match.group(1)
     return None
 
-def extract_headline(soup: BeautifulSoup):
+def extract_headline(soup: BeautifulSoup) -> Optional[str]:
+    """
+    Extract the headline from a BeautifulSoup-parsed HTML document.
+
+    The function attempts to retrieve the headline in the following order:
+    1. The content of the <meta property="og:title"> tag (Open Graph title)
+    2. The content of the <title> tag
+    3. The text inside the first <h1> tag
+
+    Parameters:
+        soup (BeautifulSoup): A BeautifulSoup object representing the HTML document.
+
+    Returns:
+        str or None: The extracted headline as a string, or None if no suitable element is found.
+    """
     og_title = soup.find("meta", property="og:title")
     if og_title and og_title.get("content"):
         return og_title["content"].strip()
-    
+
     title_tag = soup.find("title")
     if title_tag:
         return title_tag.get_text(strip=True)
-    
+
     h1 = soup.find("h1")
     if h1:
         return h1.get_text(strip=True)
-    
+
     return None
 
 def detect_loanwords(text: str) -> list[str]:
