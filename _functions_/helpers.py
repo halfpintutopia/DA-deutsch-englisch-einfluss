@@ -57,6 +57,7 @@ def get_article_urls(sitemap_url: str) -> list[str]:
     """
     res = requests.get(sitemap_url, headers=headers)
     soup = BeautifulSoup(res.text, "xml")
+    
     return [loc.text for loc in soup.find_all("loc")]
 
 def is_valid_article_url(url: str) -> bool:
