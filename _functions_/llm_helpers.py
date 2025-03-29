@@ -101,4 +101,26 @@ def detect_country_influence(text: str) -> str:
     
     return ask_ollama(prompt=prompt)
 
+def enrich_article_and_create_dataframe(
+        df: pd.DataFrame,
+) -> pd.DataFrame:
+    df_copy = df.copy()
 
+    results = {
+        "tone": [],
+        "topic": [],
+        "summary": [],
+        "loanwords_usage": [],
+        "marketing_loanwords": [],
+        "country_influence": []
+    }
+
+    for txt in tqdm(df_copy["text"], desc="Enriching with Ollama"):
+        results["tone"].append(classify_tone(text=txt))
+        results["topic"].append(classify_topic(text=txt))
+        results["summary"].append(summarise_article(text=txt))
+        results["loanwords_usage"].append(explain_loanwords_usage(text=txt))
+        results["marketing_loanwords"].append(detect_marketing_loanwords(text=txt))
+        results["country_influence"].append(detect_country_influence(text=txt))
+
+    return pd.DataFrame(results)
