@@ -7,15 +7,36 @@ from typing import Optional
 from tqdm import tqdm
 import time
 
-def ask_ollama(prompt, model="mistral", system=None):
+def ask_ollama(
+        prompt: str, 
+        model: str = "mistral",
+        system: Optional[str] = None,
+        retries: int = 3,
+        delay: float = 2.0
+    ) -> str:
     """Send a prompt to the specified Ollama language model and return the model's response."""
+    messages = []
+    
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    for attempt in range(retries):
+        try:
+            response = ollama.chat(model=model, messages=messages)
+            return response["message"]["content"].strip()
+        except Exception as e:
+            print(f"[Ollama error - attempt {attempt+1}] {e}")
+            time.sleep(delay)
+        return "error"
+
     response = ollama.chat(model=model, messages=[
         {"role": "system", "content": system} if system else {},
         {"role": "user", "content": prompt}
     ])
     return response["message"]["content"]
 
-def classify_tone(text) -> str:
+def classify_tone(text: str) -> str:
     """Classify the tone of a given text as either 'formal' or 'informal'."""
     prompt = (
         "Is the following article written in a formal or informal tone? "
@@ -24,7 +45,7 @@ def classify_tone(text) -> str:
     )
     return ask_ollama(prompt=prompt).strip().lower()
 
-def classify_topic(text) -> str:
+def classify_topic(text: str) -> str:
     """Classify the topic of a given text into one of the predefined categories: 'business', 'technology', 'lifestyle', 'politics', or 'culture'."""
     prompt = (
         "Classify the following article as one of the following categories: "
@@ -35,7 +56,7 @@ def classify_topic(text) -> str:
 
     return ask_ollama(prompt=prompt).strip().lower()
 
-def summarise_article(text) -> str:
+def summarise_article(text: str) -> str:
     """Generate a 2–3 sentence summary of a German article."""
     prompt = (
         "Summarise the German article in 2-3 sentences:\n\n"
@@ -44,7 +65,7 @@ def summarise_article(text) -> str:
     
     return ask_ollama(prompt=prompt)
 
-def explain_loanwords_usage(text) -> str:
+def explain_loanwords_usage(text: str) -> str:
     """Explain the use of English loanwords in a German article and infer possible context or target audience implications."""
     prompt = (
         "Why does this German article use English words? "
@@ -54,7 +75,7 @@ def explain_loanwords_usage(text) -> str:
 
     return ask_ollama(prompt=prompt)
 
-def detect_marketing_loanwords(text) -> str:
+def detect_marketing_loanwords(text: str) -> str:
     """Identify English loanwords in a German article that are used in a marketing or advertising context."""
     prompt = (
         "Here is an article in German:\n\n"
@@ -65,7 +86,7 @@ def detect_marketing_loanwords(text) -> str:
 
     return ask_ollama(prompt=prompt)
 
-def detect_country_influence(text) -> str:
+def detect_country_influence(text: str) -> str:
     """Detect and return a single influential country (or 'Multiple'/'Other') whose culture is reflected in the German article."""
     prompt = (
         "Does this German article show cultural influence from any of the following influential countries: "
