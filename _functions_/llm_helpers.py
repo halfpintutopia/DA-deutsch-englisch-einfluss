@@ -6,6 +6,8 @@ import pandas as pd
 from typing import Optional
 from tqdm import tqdm
 import time
+import logging
+import os
 
 
 def ask_ollama(
@@ -127,21 +129,51 @@ def detect_unwanted_loanwords(text: str, loanwords: list[str]) -> list[str]:
 def batch_clean_loanwords(
         df: pd.DataFrame,
         index_column: str,
-        limit: int = None
+        limit: int = None,
+        checkpoint_path: str = "loanwords_progress.csv",
+        log_path: str = "loanwords_processing.log"
 ) -> pd.DataFrame:
-    df_copy = df[[index_column, "text", "loanwords"]].copy()
-    # sample = df.copy() if limit is None else df.head(limit).copy()
-    #  sample["excluded_loanwords"]
+    logging.basicConfig(filename=log_path, level=logging.INFO, format="%(asctime)s - %(message)s")
 
-    df_copy["excluded_loanwords"] = df_copy.apply(
-        lambda row: detect_unwanted_loanwords(row["text"], row["loanwords"]), axis=1
-    )
+    if os.path.exists(checkpoint_path):
+        logging.info(f"Loading checkpoint from {checkpoint_path}")
+        processed_df = pd.read_csv(checkpoint_path)
+        processed_ids = set(processed_df(index_column))
+    else:
+        processed_df = pd.DataFrame()
+        processed_ids = set()
 
-    df_copy["refined_loanwords"] = df_copy.apply(
-        lambda row: [w for w in row["loanwords"] if w not in row["excluded_loanwords"]], axis=1
-    )
+    to_process = df[~df[index_column].isin(processed_ids)]
+    uf limit:
+    to_process = to_process.head(limit)
 
-    return df_copy
+    results = []
+
+    for _, row in to_process.iterrows():
+        idx = row[index_column]
+        try:
+            excluded = detect_unwanted_loanwords(row["text"], row["loanwords"])
+            refined = [w for w in row["loanwords"]
+                       if w not in excluded]
+            
+            result_row = {
+                index_column: idx,
+                "text": row["loanwords"],
+                "excluded_loanwords": excluded,
+                "refined_loanwords": refined
+            }
+
+            results.append(result_row)
+            logging.info(f"Processed row: {idx}")
+        except Exception as e:
+            logging.error(f"Error processing row {idx}: {e}")
+
+        if results:
+            pd.DataFrame(results).to_csv(checkpoint_path, index=False)
+
+    final_df = pd.concat([processed_df, pd.DataFrame(results)], ignore_index=True)
+
+    return final_df
 
 
 def enrich_article_and_create_dataframe(
