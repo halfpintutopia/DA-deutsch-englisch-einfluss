@@ -109,6 +109,41 @@ def detect_country_influence(text: str) -> str:
     return ask_ollama(prompt=prompt)
 
 
+def detect_unwanted_loanwords(text: str, loanwords: list[str]) -> list[str]:
+    prompt = (
+        "Here is a German article and a list of English loanwords that appear in it: \n\n"
+        f"Text: {text}\n\n"
+        f"Loanwords: {', '.join(loanwords)}\n\n"
+        "Which of these words are likely to be generic UI or boilerplate terms "
+        "such as 'footer', 'ticker', 'tracking', or brand names and social media platforms "
+        "that should not be considered true loanwords? Return a list of these irrelevant words."
+        f"{text}"
+    )
+
+    response = ask_ollama(prompt=prompt)
+    return [w.strip() for w in response.split(",") if w.strip()]
+
+
+def batch_clean_loanwords(
+        df: pd.DataFrame,
+        index_column: str,
+        limit: int = None
+) -> pd.DataFrame:
+    df_copy = df[[index_column, "text", "loanwords"]].copy()
+    # sample = df.copy() if limit is None else df.head(limit).copy()
+    #  sample["excluded_loanwords"]
+
+    df_copy["excluded_loanwords"] = df_copy.apply(
+        lambda row: detect_unwanted_loanwords(row["text"], row["loanwords"]), axis=1
+    )
+
+    df_copy["refined_loanwords"] = df_copy.apply(
+        lambda row: [w for w in row["loanwords"] if w not in row["excluded_loanwords"]], axis=1
+    )
+
+    return df_copy
+
+
 def enrich_article_and_create_dataframe(
         df: pd.DataFrame,
 ) -> pd.DataFrame:
@@ -135,39 +170,14 @@ def enrich_article_and_create_dataframe(
     return pd.DataFrame(results)
 
 
-def detect_unwanted_loanwords(text: str, loanwords: list[str]) -> list[str]:
-    prompt = (
-        "Here is a German article and a list of English loanwords that appear in it: \n\n"
-        f"Text: {text}\n\n"
-        f"Loanwords: {', '.join(loanwords)}\n\n"
-        "Which of these words are likely to be generic UI or boilerplate terms "
-        "such as 'footer', 'ticker', 'tracking', or brand names and social media platforms "
-        "that should not be considered true loanwords? Return a list of these irrelevant words."
-        f"{text}"
-    )
-
-    response = ask_ollama(prompt=prompt)
-    return [w.strip() for w in response.split(",") if w.strip()]
-
-def batch_clean_loanwords(
+def add_id_to_df(
         df: pd.DataFrame,
-        limit: Optional[int] = None
+        column_name: str,
+        #suffix: str,
+        insert_index: bool = True
 ) -> pd.DataFrame:
-    df_copy = df[["text", "loanwords"]].copy()
-    # sample = df.copy() if limit is None else df.head(limit).copy()
-    # sample["excluded_loanwords"]
+    df_copy = df.copy()
 
-    for row in tqdm(df_copy, desc="Creating excluded loanwords"):
-        df_copy["excluded_loanwords"].append(
-            detect_unwanted_loanwords(row["text"], row["loanwords"]))
+    df_copy = df_copy.reset_index(drop=insert_index)
 
-    for row in tqdm(new_df, desc="Creating excluded loanwords"):
-        result["excluded_loanwords"].append(
-            detect_unwanted_loanwords(row["text"], row["loanwords"]))
-
-    for lw, excluded_lw in tqdm(df[["text", "loanwords"]], desc="Refining loanwords"):
-        result["refined_loanwords"].append()
-
-    return new_df
-
-
+    df_copy[f"{column_name}"] = df_copy.index
