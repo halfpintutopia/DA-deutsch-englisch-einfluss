@@ -2,3 +2,4 @@ logs/*.txt
 scratchfiles/*.ipynb
 scratchfiles/*.csv
 images
+__pycache__
