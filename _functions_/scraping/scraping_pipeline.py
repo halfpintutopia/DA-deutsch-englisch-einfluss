@@ -10,11 +10,13 @@ headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-from scraping_helpers import is_valid_article_url, \
-    extract_meta_data, \
-    extract_jsonld_date, \
-    extract_year_from_url, \
+from scraping_helpers import (
+    is_valid_article_url,
+    extract_meta_data,
+    extract_jsonld_date,
+    extract_year_from_url,
     extract_headline
+)
 
 
 def scrape_article_full(url: str) -> Optional[dict]:
