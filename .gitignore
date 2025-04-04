@@ -1,2 +1,2 @@
-*.txt
-*.csv
+logs/*.txt
+scratchfiles/*.ipynb
