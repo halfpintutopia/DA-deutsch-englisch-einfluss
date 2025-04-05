@@ -25,7 +25,7 @@ def ask_ollama(
     message to guide the model's behaviour. It supports retry logic for improved robustness
     in case of transient errors during the API call.
 
-    Args:
+    Parameters:
         prompt (str): The user message to send to the language model.
         model (str, optional): The name of the Ollama model to use (default is "mistral").
         system (str, optional): An optional system message to influence model behaviour.
@@ -64,7 +64,7 @@ def classify_tone(text: str) -> str:
     This function uses a language model to analyze the tone of the input text
     and classify it as either "formal" or "informal" based on its style and language.
 
-    Args:
+    Parameters:
         text (str): The input text to be analysed.
 
     Returns:
@@ -85,7 +85,7 @@ def classify_topic(text: str) -> str:
     Categories include: 'business', 'technology', 'lifestyle', 'politics', or 'culture'.
     The classification is performed using a language model.
 
-    Args:
+    Parameters:
         text (str): The input text to classify.
 
     Returns:
@@ -105,7 +105,7 @@ def summarise_article(text: str) -> str:
     """
     Generates a concise 2–3 sentence summary of a German-language article.
 
-    Args:
+    Parameters:
         text (str): The full text of the German article.
 
     Returns:
@@ -126,7 +126,7 @@ def explain_loanwords_usage(text: str) -> str:
     The explanation may include insights into the article's context or target audience
     based on the use of these English terms.
 
-    Args:
+    Parameters:
         text (str): The full text of the German article.
 
     Returns:
@@ -145,7 +145,7 @@ def detect_marketing_loanwords(text: str) -> str:
     """
     Identifies English loanwords in a German article that are used in a marketing or advertising context.
 
-    Args:
+    Parameters:
         text (str): The text of the article.
 
     Returns:
@@ -168,7 +168,7 @@ def detect_country_influence(text: str) -> str:
     Analyses the article to identify cultural influences from a predefined list of influential countries.
     Returns results in JSON format including both the country/countries and reasoning.
 
-    Args:
+    Parameters:
         text (str): The text of the German article.
 
     Returns:
@@ -195,7 +195,7 @@ def detect_unwanted_loanwords(text: str, loanwords: list[str]) -> list[str]:
     Filters out English words in a German article that are generic UI terms, boilerplate, brand names,
     or social media platforms, and should not be treated as meaningful loanwords.
 
-    Args:
+    Parameters:
         text (str): The full article text.
         loanwords (list[str]): A list of detected English loanwords.
 
@@ -229,7 +229,7 @@ def batch_clean_loanwords(
     Maintains a checkpoint CSV to track progress across runs and log errors. The function 
     removes UI/boilerplate terms from loanword lists and stores cleaned data.
 
-    Args:
+    Parameters:
         df (pd.DataFrame): DataFrame containing article data.
         index_column (str): Column used as a unique identifier for articles.
         limit (int, optional): Optional limit on number of rows to process.
@@ -297,7 +297,7 @@ def enrich_article_and_create_dataframe(
     For each article, computes tone, topic, summary, loanword usage explanation, 
     marketing loanwords, and country influence.
 
-    Args:
+    Parameters:
         df (pd.DataFrame): DataFrame containing a column named "text" with article content.
 
     Returns:
@@ -337,7 +337,7 @@ def add_id_to_df(
 
     Optionally resets the index before assigning IDs. Useful for downstream tracking or merging.
 
-    Args:
+    Parameters:
         df (pd.DataFrame): The original DataFrame.
         column_name (str): Name of the new identifier column.
         insert_index (bool): Whether to drop and reassign index before creating the ID column.
@@ -358,7 +358,7 @@ def load_cleaned_progress(
     """
     Loads a previously saved loanword refinement CSV and parses its JSON-formatted columns.
 
-    Args:
+    Parameters:
         csv_path (str): Path to the saved CSV file.
 
     Returns:
