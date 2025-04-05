@@ -69,7 +69,7 @@ def process_scraped_csv_in_batches(
                     "summary": summarise_article(text),
                     "loanword_context": explain_loanwords_usage(text),
                     "marketing_loanwords": detect_marketing_loanwords(text),
-                    "us_influence": detect_country_influence(text)
+                    "country_influence": detect_country_influence(text)
                 }
                 new_rows.append(enriched)
                 logger.info(f"Processed article: {article_id}")
