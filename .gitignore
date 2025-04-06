@@ -1,5 +1,5 @@
 logs/*.txt
-scratchfiles/*.ipynb
-scratchfiles/*.csv
+scratchfiles
+flourish_data/*.csv
 images
 __pycache__
